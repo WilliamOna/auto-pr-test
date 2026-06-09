@@ -9,6 +9,12 @@ const server = createServer((req, res) => {
     return;
   }
 
+  if (req.method === "GET" && req.url === "/status") {
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ uptime: process.uptime(), timestamp: new Date().toISOString() }));
+    return;
+  }
+
   res.writeHead(200, { "Content-Type": "application/json" });
   res.end(JSON.stringify({ message: "Hello World" }));
 });
