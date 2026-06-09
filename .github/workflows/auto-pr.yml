@@ -54,7 +54,6 @@ jobs:
           OLLAMA_HOST: http://ollama:11434
           GH_TOKEN: ${{ secrets.PAT }}
         run: |
-          REVIEW=$(opencode run "Review this PR and suggest improvements. Post your review as a comment on this PR." \
+          opencode run "Review this PR and suggest improvements. Post your review as a comment on this PR." \
             -f "$GITHUB_EVENT_PATH" \
-            --dangerously-skip-permissions 2>/dev/null)
-          gh pr comment ${{ github.event.pull_request.number }} --body "$REVIEW" || echo "Comment post failed"
+            --dangerously-skip-permissions
