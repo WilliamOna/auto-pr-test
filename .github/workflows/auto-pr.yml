@@ -54,6 +54,6 @@ jobs:
           OLLAMA_HOST: http://ollama:11434
           GH_TOKEN: ${{ secrets.PAT }}
         run: |
-          opencode run "Review this PR and suggest improvements. Post your review as a comment on this PR." \
+          opencode run "Review this PR and suggest improvements. Post line-specific feedback as inline review comments using the GitHub API (POST /repos/{owner}/{repo}/pulls/{number}/reviews with event: COMMENT and a comments array with path/line/body). Use a general comment for architectural or cross-cutting concerns that don't apply to a specific line." \
             -f "$GITHUB_EVENT_PATH" \
             --dangerously-skip-permissions
