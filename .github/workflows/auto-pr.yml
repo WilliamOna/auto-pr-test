@@ -1,0 +1,58 @@
+name: Auto PR Agent
+
+on:
+  issues:
+    types: [opened, reopened, labeled]
+  pull_request:
+    types: [opened, synchronize]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  agent:
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install opencode
+        run: |
+          curl -fsSL https://opencode.ai/install | bash
+          echo "$HOME/.opencode/bin" >> $GITHUB_PATH
+
+      - name: Generate code from issue
+        if: github.event_name == 'issues'
+        env:
+          OLLAMA_HOST: http://ollama:11434
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "github-actions[bot]"
+          BRANCH="issue-${{ github.event.issue.number }}"
+          git checkout -b "$BRANCH" 2>/dev/null || git checkout "$BRANCH"
+          opencode run "Implement this issue: ${{ github.event.issue.title }}" \
+            -f "$GITHUB_EVENT_PATH" \
+            --dangerously-skip-permissions
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git commit -m "${{ github.event.issue.title }}"
+          git push origin "$BRANCH"
+          gh pr create --title "${{ github.event.issue.title }}" \
+            --body "${{ github.event.issue.body }}" \
+            --base master 2>/dev/null || echo "PR may already exist"
+
+      - name: Review PR
+        if: github.event_name == 'pull_request'
+        env:
+          OLLAMA_HOST: http://ollama:11434
+        run: |
+          opencode run "Review this PR and suggest improvements" \
+            -f "$GITHUB_EVENT_PATH" \
+            --dangerously-skip-permissions
