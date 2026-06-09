@@ -46,13 +46,15 @@ jobs:
           git push origin "$BRANCH"
           gh pr create --title "${{ github.event.issue.title }}" \
             --body "${{ github.event.issue.body }}" \
-            --base ${{ github.event.repository.default_branch }} 2>/dev/null || echo "PR may already exist"
+            --base ${{ github.event.repository.default_branch }} || echo "PR may already exist (gh exit code: $?)"
 
       - name: Review PR
         if: github.event_name == 'pull_request'
         env:
           OLLAMA_HOST: http://ollama:11434
+          GH_TOKEN: ${{ github.token }}
         run: |
-          opencode run "Review this PR and suggest improvements" \
+          opencode run "Review this PR and suggest improvements. Post your review as a comment on this PR." \
             -f "$GITHUB_EVENT_PATH" \
             --dangerously-skip-permissions
+          gh pr comment ${{ github.event.pull_request.number }} --body "✅ Review complete"
