@@ -46,7 +46,7 @@ jobs:
           git push origin "$BRANCH"
           gh pr create --title "${{ github.event.issue.title }}" \
             --body "${{ github.event.issue.body }}" \
-            --base master 2>/dev/null || echo "PR may already exist"
+            --base ${{ github.event.repository.default_branch }} 2>/dev/null || echo "PR may already exist"
 
       - name: Review PR
         if: github.event_name == 'pull_request'
