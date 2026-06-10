@@ -40,6 +40,7 @@ jobs:
         env:
           OLLAMA_HOST: http://ollama:11434
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           git config --global user.email "coder-bot@users.noreply.github.com"
           git config --global user.name "coder-bot"
@@ -89,6 +90,7 @@ jobs:
         env:
           OLLAMA_HOST: http://ollama:11434
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
           PR_NUM: ${{ github.event.pull_request.number }}
           BRANCH: ${{ github.head_ref }}
           OWNER: ${{ github.repository_owner }}
@@ -101,7 +103,7 @@ jobs:
           for ((i=0; i<MAX_LOOPS; i++)); do
             echo "=== Review round $((i+1))/$MAX_LOOPS ==="
             git pull origin "$BRANCH"
-            opencode run "Review this PR and suggest improvements. Post line-specific feedback as inline review comments using the GitHub API (POST /repos/$OWNER/$REPO/pulls/$PR_NUM/reviews with event: COMMENT and a comments array with path/line/body). Use a general comment for architectural or cross-cutting concerns. Sign all comments with '--- review-bot'. If the code looks good and has no issues, submit an APPROVE review instead of COMMENT." \
+            opencode run "Review this PR and suggest improvements. Post line-specific feedback as inline review comments using gh api (NOT curl). Use: gh api --method POST /repos/$OWNER/$REPO/pulls/$PR_NUM/reviews --input <filename> with a JSON file containing event, body, and comments array. Write the JSON to a file first, then use --input. Use event: COMMENT with a comments array with path/line/body. Use a general comment for architectural or cross-cutting concerns. Sign all comments with '--- review-bot'. If the code looks good and has no issues, submit an APPROVE review instead of COMMENT." \
               -f "$GITHUB_EVENT_PATH" \
               --dangerously-skip-permissions
             sleep 3
