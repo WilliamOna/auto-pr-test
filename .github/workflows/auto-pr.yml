@@ -134,12 +134,18 @@ jobs:
               --dangerously-skip-permissions
             git add -A
             if git diff --cached --quiet; then
-              echo "No changes from fix. Stopping."
-              gh api "repos/$OWNER/$REPO/issues/$PR_NUM/labels" -f labels[]="ready-for-human"
-              exit 0
+              AHEAD=$(git rev-list --count origin/"$BRANCH"..HEAD 2>/dev/null)
+              if [ -z "$AHEAD" ] || [ "$AHEAD" -eq 0 ]; then
+                echo "No changes from fix. Stopping."
+                gh api "repos/$OWNER/$REPO/issues/$PR_NUM/labels" -f labels[]="ready-for-human"
+                exit 0
+              fi
+              echo "Fixer already committed. Pushing $AHEAD unpushed commit(s)."
+              git push origin "$BRANCH"
+            else
+              git commit -m "fix: address review round $((i+1))"
+              git push origin "$BRANCH"
             fi
-            git commit -m "fix: address review round $((i+1))"
-            git push origin "$BRANCH"
             PREV_COMMENT_COUNT=$NEW_COMMENT_COUNT
           done
           gh api "repos/$OWNER/$REPO/issues/$PR_NUM/labels" -f labels[]="ready-for-human"
