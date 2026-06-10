@@ -99,6 +99,7 @@ jobs:
           git config --global user.name "fixer-bot"
           git config --global credential.helper "!f() { echo username=x-access-token; echo password=$GH_TOKEN; }; f"
           MAX_LOOPS=5
+          PREV_COMMENT_COUNT=$(gh api "repos/$OWNER/$REPO/pulls/$PR_NUM/comments" --jq 'length')
           for ((i=0; i<MAX_LOOPS; i++)); do
             echo "=== Review round $((i+1))/$MAX_LOOPS ==="
             git pull origin "$BRANCH"
@@ -114,22 +115,17 @@ jobs:
               exit 0
             fi
             STATE=$(echo "$LATEST_REVIEW" | jq -r '.state // empty')
-            REVIEW_ID=$(echo "$LATEST_REVIEW" | jq -r '.id // empty')
-            if [ -n "$REVIEW_ID" ] && [ "$REVIEW_ID" != "null" ]; then
-              REVIEW_DETAIL=$(gh api "repos/$OWNER/$REPO/pulls/$PR_NUM/reviews/$REVIEW_ID")
-              COMMENT_COUNT=$(echo "$REVIEW_DETAIL" | jq '.comments // [] | length')
-            else
-              COMMENT_COUNT=0
-            fi
-            echo "Review state: $STATE, inline comments: $COMMENT_COUNT"
+            NEW_COMMENT_COUNT=$(gh api "repos/$OWNER/$REPO/pulls/$PR_NUM/comments" --jq 'length')
+            DELTA=$((NEW_COMMENT_COUNT - PREV_COMMENT_COUNT))
+            echo "Review state: $STATE, new inline comments this round: $DELTA"
             if [ "$STATE" = "APPROVED" ]; then
               gh api "repos/$OWNER/$REPO/issues/$PR_NUM/labels" -f labels[]="ready-for-human"
               echo "Review approved. Ready for human review."
               exit 0
             fi
-            if [ "$COMMENT_COUNT" -eq 0 ]; then
+            if [ "$DELTA" -eq 0 ]; then
               gh api "repos/$OWNER/$REPO/issues/$PR_NUM/labels" -f labels[]="ready-for-human"
-              echo "No inline comments. Ready for human review."
+              echo "No new inline comments. Ready for human review."
               exit 0
             fi
             REVIEW_BODY=$(echo "$LATEST_REVIEW" | jq -r '.body // ""')
@@ -144,6 +140,7 @@ jobs:
             fi
             git commit -m "fix: address review round $((i+1))"
             git push origin "$BRANCH"
+            PREV_COMMENT_COUNT=$NEW_COMMENT_COUNT
           done
           gh api "repos/$OWNER/$REPO/issues/$PR_NUM/labels" -f labels[]="ready-for-human"
           gh api "repos/$OWNER/$REPO/issues/$PR_NUM/comments" \
