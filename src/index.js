@@ -17,26 +17,29 @@ const server = createServer((req, res) => {
     return;
   }
 
-  if (req.method === "GET" && req.url.startsWith("/debug")) {
+  if (req.method === "GET") {
     const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
-    const format = url.searchParams.get("format");
 
-    if (format && !VALID_FORMATS.includes(format)) {
-      res.writeHead(400, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: `Invalid format '${format}'. Supported formats: ${VALID_FORMATS.join(", ")}` }));
+    if (url.pathname === "/debug") {
+      const format = url.searchParams.get("format");
+
+      if (format && !VALID_FORMATS.includes(format)) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: `Invalid format '${format}'. Supported formats: ${VALID_FORMATS.join(", ")}` }));
+        return;
+      }
+
+      const debugInfo = {
+        argv: process.argv,
+        cwd: process.cwd(),
+        cpuUsage: process.cpuUsage(),
+        memoryUsage: process.memoryUsage(),
+      };
+
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(debugInfo, null, format === "pretty" ? 2 : undefined));
       return;
     }
-
-    const debugInfo = {
-      argv: process.argv,
-      cwd: process.cwd(),
-      cpuUsage: process.cpuUsage(),
-      memoryUsage: process.memoryUsage(),
-    };
-
-    res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify(debugInfo, null, format === "pretty" ? 2 : undefined));
-    return;
   }
 
   res.writeHead(200, { "Content-Type": "application/json" });
