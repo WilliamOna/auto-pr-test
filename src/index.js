@@ -33,6 +33,10 @@ const server = createServer((req, res) => {
     req.on("data", (chunk) => {
       body += chunk;
     });
+    req.on("error", () => {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Request error" }));
+    });
     req.on("end", () => {
       let data;
       try {
@@ -42,10 +46,8 @@ const server = createServer((req, res) => {
         res.end(JSON.stringify({ error: "Invalid JSON" }));
         return;
       }
+      if (history.length >= 10) history.shift();
       history.push(data);
-      if (history.length > 10) {
-        history.shift();
-      }
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(data));
     });
