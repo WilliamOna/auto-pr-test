@@ -57,7 +57,9 @@ jobs:
           git commit -m "${{ github.event.issue.title }}"
           git push origin "$BRANCH"
           gh pr create --title "${{ github.event.issue.title }}" \
-            --body "${{ github.event.issue.body }}" \
+            --body "${{ github.event.issue.body }}
+
+Closes #${{ github.event.issue.number }}" \
             --base ${{ github.event.repository.default_branch }}
 
   review-and-fix:
