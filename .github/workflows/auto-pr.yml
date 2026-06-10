@@ -114,7 +114,13 @@ jobs:
               exit 0
             fi
             STATE=$(echo "$LATEST_REVIEW" | jq -r '.state // empty')
-            COMMENT_COUNT=$(echo "$LATEST_REVIEW" | jq '.comments // [] | length')
+            REVIEW_ID=$(echo "$LATEST_REVIEW" | jq -r '.id // empty')
+            if [ -n "$REVIEW_ID" ] && [ "$REVIEW_ID" != "null" ]; then
+              REVIEW_DETAIL=$(gh api "repos/$OWNER/$REPO/pulls/$PR_NUM/reviews/$REVIEW_ID")
+              COMMENT_COUNT=$(echo "$REVIEW_DETAIL" | jq '.comments // [] | length')
+            else
+              COMMENT_COUNT=0
+            fi
             echo "Review state: $STATE, inline comments: $COMMENT_COUNT"
             if [ "$STATE" = "APPROVED" ]; then
               gh api "repos/$OWNER/$REPO/issues/$PR_NUM/labels" -f labels[]="ready-for-human"
