@@ -59,7 +59,7 @@ jobs:
           gh pr create --title "${{ github.event.issue.title }}" \
             --body "${{ github.event.issue.body }}
 
-Closes #${{ github.event.issue.number }}" \
+            Closes #${{ github.event.issue.number }}" \
             --base ${{ github.event.repository.default_branch }}
 
   review-and-fix:
