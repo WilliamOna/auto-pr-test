@@ -101,7 +101,7 @@ jobs:
           for ((i=0; i<MAX_LOOPS; i++)); do
             echo "=== Review round $((i+1))/$MAX_LOOPS ==="
             git pull origin "$BRANCH"
-            opencode run "Review this PR and suggest improvements. Post line-specific feedback as inline review comments using gh api (NOT curl). Use: gh api --method POST /repos/$OWNER/$REPO/pulls/$PR_NUM/reviews --input <filename> with a JSON file containing event, body, and comments array. Write the JSON to a file first, then use --input. Use event: COMMENT with a comments array with path/line/body. Each comment must be: {\"path\": \"src/index.js\", \"line\": <line_number>, \"body\": \"<comment_text>\"}. Use a general comment for architectural or cross-cutting concerns. Sign all comments with '--- review-bot'. If the code looks good and has no issues, submit an APPROVE review instead of COMMENT." \
+            opencode run "Review this PR and suggest improvements. Use gh api (NOT curl). Submit a COMMENT review with general feedback via: gh api --method POST /repos/$OWNER/$REPO/pulls/$PR_NUM/reviews -f event=COMMENT -f body='general feedback'. Then post each inline comment separately via: gh api --method POST /repos/$OWNER/$REPO/pulls/$PR_NUM/comments -f path='src/index.js' -f line=<N> -f body='your comment'. Sign all reviews and comments with '--- review-bot'. If the code looks good and has no issues, submit an APPROVE review instead of COMMENT." \
               -f "$GITHUB_EVENT_PATH" \
               --dangerously-skip-permissions
             sleep 3
