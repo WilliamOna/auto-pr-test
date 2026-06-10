@@ -6,32 +6,34 @@ on:
   pull_request:
     types: [opened, synchronize]
 
+concurrency:
+  group: pr-review-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
 permissions:
   contents: write
   pull-requests: write
   issues: write
 
 jobs:
-  agent:
+  coder:
+    if: github.event_name == 'issues'
     runs-on: self-hosted
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
       - name: Install opencode
         run: |
           curl -fsSL https://opencode.ai/install | bash
-          echo "$HOME/.opencode/bin" >> $GITHUB_PATH
-
+          echo "$HOME/.opencode/bin" >> "$GITHUB_PATH"
       - name: Generate code from issue
-        if: github.event_name == 'issues'
         env:
           OLLAMA_HOST: http://ollama:11434
           GH_TOKEN: ${{ secrets.PAT }}
         run: |
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git config --global user.name "github-actions[bot]"
+          git config --global user.email "coder-bot@users.noreply.github.com"
+          git config --global user.name "coder-bot"
           BRANCH="issue-${{ github.event.issue.number }}"
           git checkout -b "$BRANCH" 2>/dev/null || git checkout "$BRANCH"
           opencode run "Implement this issue: ${{ github.event.issue.title }}" \
@@ -48,12 +50,69 @@ jobs:
             --body "${{ github.event.issue.body }}" \
             --base ${{ github.event.repository.default_branch }}
 
-      - name: Review PR
-        if: github.event_name == 'pull_request'
+  review-and-fix:
+    if: |
+      github.event_name == 'pull_request'
+      && !contains(github.event.pull_request.labels.*.name, 'ready-for-human')
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+      - name: Install opencode
+        run: |
+          curl -fsSL https://opencode.ai/install | bash
+          echo "$HOME/.opencode/bin" >> "$GITHUB_PATH"
+      - name: Review and fix loop
         env:
           OLLAMA_HOST: http://ollama:11434
           GH_TOKEN: ${{ secrets.PAT }}
+          PR_NUM: ${{ github.event.pull_request.number }}
+          BRANCH: ${{ github.head_ref }}
+          OWNER: ${{ github.repository_owner }}
+          REPO: ${{ github.event.repository.name }}
         run: |
-          opencode run "Review this PR and suggest improvements. Post line-specific feedback as inline review comments using the GitHub API (POST /repos/{owner}/{repo}/pulls/{number}/reviews with event: COMMENT and a comments array with path/line/body). Use a general comment for architectural or cross-cutting concerns that don't apply to a specific line." \
-            -f "$GITHUB_EVENT_PATH" \
-            --dangerously-skip-permissions
+          git config --global user.email "fixer-bot@users.noreply.github.com"
+          git config --global user.name "fixer-bot"
+          MAX_LOOPS=5
+          for ((i=0; i<MAX_LOOPS; i++)); do
+            echo "=== Review round $((i+1))/$MAX_LOOPS ==="
+            git pull origin "$BRANCH"
+            opencode run "Review this PR and suggest improvements. Post line-specific feedback as inline review comments using the GitHub API (POST /repos/$OWNER/$REPO/pulls/$PR_NUM/reviews with event: COMMENT and a comments array with path/line/body). Use a general comment for architectural or cross-cutting concerns. Sign all comments with '--- review-bot'. If the code looks good and has no issues, submit an APPROVE review instead of COMMENT." \
+              -f "$GITHUB_EVENT_PATH" \
+              --dangerously-skip-permissions
+            LATEST_REVIEW=$(gh api "repos/$OWNER/$REPO/pulls/$PR_NUM/reviews" --jq 'last // empty')
+            if [ -z "$LATEST_REVIEW" ]; then
+              echo "No review posted. Stopping."
+              gh api "repos/$OWNER/$REPO/issues/$PR_NUM/labels" -f labels[]="ready-for-human"
+              exit 0
+            fi
+            STATE=$(echo "$LATEST_REVIEW" | jq -r '.state')
+            COMMENT_COUNT=$(echo "$LATEST_REVIEW" | jq '[.comments[]] | length')
+            echo "Review state: $STATE, inline comments: $COMMENT_COUNT"
+            if [ "$STATE" = "APPROVED" ]; then
+              gh api "repos/$OWNER/$REPO/issues/$PR_NUM/labels" -f labels[]="ready-for-human"
+              echo "Review approved. Ready for human review."
+              exit 0
+            fi
+            if [ "$COMMENT_COUNT" -eq 0 ]; then
+              gh api "repos/$OWNER/$REPO/issues/$PR_NUM/labels" -f labels[]="ready-for-human"
+              echo "No inline comments. Ready for human review."
+              exit 0
+            fi
+            REVIEW_BODY=$(echo "$LATEST_REVIEW" | jq -r '.body // ""')
+            opencode run "Address all review comments on this PR. Read the review body and fix the code accordingly. Review body: $REVIEW_BODY" \
+              -f "$GITHUB_EVENT_PATH" \
+              --dangerously-skip-permissions
+            git add -A
+            if git diff --cached --quiet; then
+              echo "No changes from fix. Stopping."
+              gh api "repos/$OWNER/$REPO/issues/$PR_NUM/labels" -f labels[]="ready-for-human"
+              exit 0
+            fi
+            git commit -m "fix: address review round $((i+1))"
+            git push origin "$BRANCH"
+          done
+          gh api "repos/$OWNER/$REPO/issues/$PR_NUM/labels" -f labels[]="ready-for-human"
+          echo "Max loops reached. Ready for human review."
