@@ -115,4 +115,5 @@ jobs:
             git push origin "$BRANCH"
           done
           gh api "repos/$OWNER/$REPO/issues/$PR_NUM/labels" -f labels[]="ready-for-human"
-          echo "Max loops reached. Ready for human review."
+          gh api "repos/$OWNER/$REPO/issues/$PR_NUM/comments" \
+            -f body="**review-bot**: Max 5 review-fix cycles reached without full approval. Please review the remaining comments and address them manually, or remove the \`ready-for-human\` label to trigger up to 3 more cycles via local skill."
