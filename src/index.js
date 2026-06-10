@@ -11,7 +11,7 @@ const server = createServer((req, res) => {
 
   if (req.method === "GET" && req.url === "/version") {
     res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ version: "1.0.0" }));
+    res.end(JSON.stringify({ version: "1.0.1" }));
     return;
   }
 
