@@ -129,7 +129,7 @@ jobs:
               exit 0
             fi
             REVIEW_BODY=$(echo "$LATEST_REVIEW" | jq -r '.body // ""')
-            opencode run "Address all review comments on this PR. Read the review body and fix the code accordingly. Review body: $REVIEW_BODY" \
+            opencode run "Address all review comments on this PR. Read the review body and fix the code accordingly. Review body: $REVIEW_BODY. After fixing the code, reply to each inline comment explaining what you changed. First get all comments via: gh api /repos/$OWNER/$REPO/pulls/$PR_NUM/comments. To reply to a comment, use: gh api --method POST /repos/$OWNER/$REPO/pulls/$PR_NUM/comments -f body='Fixed: <explanation>' -f in_reply_to=<comment_id>. Sign replies with '--- fixer-bot'." \
               -f "$GITHUB_EVENT_PATH" \
               --dangerously-skip-permissions
             git add -A
