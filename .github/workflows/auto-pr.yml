@@ -104,14 +104,15 @@ jobs:
             opencode run "Review this PR and suggest improvements. Post line-specific feedback as inline review comments using the GitHub API (POST /repos/$OWNER/$REPO/pulls/$PR_NUM/reviews with event: COMMENT and a comments array with path/line/body). Use a general comment for architectural or cross-cutting concerns. Sign all comments with '--- review-bot'. If the code looks good and has no issues, submit an APPROVE review instead of COMMENT." \
               -f "$GITHUB_EVENT_PATH" \
               --dangerously-skip-permissions
-            LATEST_REVIEW=$(gh api "repos/$OWNER/$REPO/pulls/$PR_NUM/reviews" --jq 'last // empty')
-            if [ -z "$LATEST_REVIEW" ]; then
+            sleep 3
+            LATEST_REVIEW=$(gh api "repos/$OWNER/$REPO/pulls/$PR_NUM/reviews" --jq '.[-1] // empty')
+            if [ -z "$LATEST_REVIEW" ] || [ "$LATEST_REVIEW" = "null" ]; then
               echo "No review posted. Stopping."
               gh api "repos/$OWNER/$REPO/issues/$PR_NUM/labels" -f labels[]="ready-for-human"
               exit 0
             fi
-            STATE=$(echo "$LATEST_REVIEW" | jq -r '.state')
-            COMMENT_COUNT=$(echo "$LATEST_REVIEW" | jq '[.comments[]] | length')
+            STATE=$(echo "$LATEST_REVIEW" | jq -r '.state // empty')
+            COMMENT_COUNT=$(echo "$LATEST_REVIEW" | jq '[.comments // [] | length]')
             echo "Review state: $STATE, inline comments: $COMMENT_COUNT"
             if [ "$STATE" = "APPROVED" ]; then
               gh api "repos/$OWNER/$REPO/issues/$PR_NUM/labels" -f labels[]="ready-for-human"
