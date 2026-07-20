@@ -1,3 +1,19 @@
+# Template: Auto PR Agent
+# Copy this file to your repo at .github/workflows/auto-pr.yml
+#
+# Required secrets:
+#   BOT_APP_ID       — GitHub App ID (pr-agent-bot-wo: 4015374)
+#   BOT_PRIVATE_KEY  — GitHub App private key (PEM)
+#   OPENCODE_API_KEY — API key from https://opencode.ai/auth (free tier big-pickle model)
+#
+# Runs on any runner (self-hosted or GitHub-hosted).
+# opencode is installed via the setup step below.
+#
+# Three bot personas defined in git config:
+#   coder-bot  — creates PRs from issues
+#   review-bot — reviews PRs, posts inline comments (signs --- review-bot)
+#   fixer-bot  — fixes code, replies to comments (signs --- fixer-bot)
+
 name: Auto PR Agent
 
 on:
@@ -18,7 +34,7 @@ permissions:
 jobs:
   coder:
     if: github.event_name == 'issues'
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
@@ -38,7 +54,7 @@ jobs:
 
       - name: Generate code from issue
         env:
-          OLLAMA_HOST: http://ollama:11434
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           git config --global user.email "coder-bot@users.noreply.github.com"
@@ -66,7 +82,7 @@ jobs:
     if: |
       github.event_name == 'pull_request'
       && !contains(github.event.pull_request.labels.*.name, 'ready-for-human')
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
@@ -87,7 +103,7 @@ jobs:
 
       - name: Review and fix loop
         env:
-          OLLAMA_HOST: http://ollama:11434
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           PR_NUM: ${{ github.event.pull_request.number }}
           BRANCH: ${{ github.head_ref }}
