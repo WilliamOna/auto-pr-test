@@ -62,8 +62,7 @@ jobs:
           git config --global credential.helper "!f() { echo username=x-access-token; echo password=$GH_TOKEN; }; f"
           BRANCH="issue-${{ github.event.issue.number }}"
           git checkout -b "$BRANCH" 2>/dev/null || git checkout "$BRANCH"
-          opencode run "Implement this issue: ${{ github.event.issue.title }}" \
-            -f "$GITHUB_EVENT_PATH" \
+          opencode run "Implement this issue. Issue #${{ github.event.issue.number }}: ${{ github.event.issue.title }}. Description: ${{ github.event.issue.body }}" \
             --dangerously-skip-permissions
           git add -A
           if git diff --cached --quiet; then
@@ -120,7 +119,6 @@ jobs:
             git pull origin "$BRANCH"
             COMMIT_SHA=$(git rev-parse HEAD)
             opencode run "Review this PR and suggest improvements. Use gh api (NOT curl). Submit a COMMENT review with general feedback via: gh api --method POST /repos/$OWNER/$REPO/pulls/$PR_NUM/reviews -f event=COMMENT -f body='general feedback'. Then for each inline comment, first get the latest commit SHA with: LATEST_SHA=\$(gh pr view $PR_NUM --json headRefOid --jq .headRefOid); then post: gh api --method POST /repos/$OWNER/$REPO/pulls/$PR_NUM/comments -f body='your comment' -f path='src/index.js' -f line=<N> -f commit_id=\$LATEST_SHA. Sign all reviews and comments with '--- review-bot'. If the code looks good and has no issues, submit an APPROVE review instead of COMMENT." \
-              -f "$GITHUB_EVENT_PATH" \
               --dangerously-skip-permissions
             sleep 3
             LATEST_REVIEW=$(gh api "repos/$OWNER/$REPO/pulls/$PR_NUM/reviews" --jq '.[-1] // empty')
@@ -145,7 +143,6 @@ jobs:
             fi
             REVIEW_BODY=$(echo "$LATEST_REVIEW" | jq -r '.body // ""')
             opencode run "Address all review comments on this PR. Read the review body and fix the code accordingly. Review body: $REVIEW_BODY. After fixing the code, reply to each inline comment explaining what you changed. First get all comments via: gh api /repos/$OWNER/$REPO/pulls/$PR_NUM/comments. To reply to a comment, use: gh api --method POST /repos/$OWNER/$REPO/pulls/$PR_NUM/comments -f body='Fixed: <explanation>' -f in_reply_to=<comment_id>. Sign replies with '--- fixer-bot'." \
-              -f "$GITHUB_EVENT_PATH" \
               --dangerously-skip-permissions
             git add -A
             if git diff --cached --quiet; then
